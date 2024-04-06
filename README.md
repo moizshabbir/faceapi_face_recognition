@@ -23,10 +23,6 @@ Getting Started
 
     ```
 
-    Use code [with caution.](https://gemini.google.com/faq#coding)
-
-    content_copy
-
 3.  Install Dependencies
 
     Bash
@@ -36,10 +32,6 @@ Getting Started
     npm install -g light-server (or yarn install -g light-server)
 
     ```
-
-    Use code [with caution.](https://gemini.google.com/faq#coding)
-
-    content_copy
 
 Usage
 
@@ -51,10 +43,6 @@ Usage
     light-server -s . -p 7000
 
     ```
-
-    Use code [with caution.](https://gemini.google.com/faq#coding)
-
-    content_copy
 
     This will start the application and display the video stream with face detection and recognition functionality.
 2.  Reference Image
