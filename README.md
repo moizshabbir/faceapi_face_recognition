@@ -1,5 +1,3 @@
-Project Name
-
 Face Recognition with Face API.js
 
 Description
