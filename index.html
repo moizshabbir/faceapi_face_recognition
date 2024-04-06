@@ -106,7 +106,7 @@
             const faceDescriptors = [faceDescription.descriptor]
             let per = Math.round((i / listCount) * 100).toFixed(0);
             alertMessage('info', `Loading images to Modal ${per}%...`);
-            return new faceapi.LabeledFaceDescriptors(label.name, faceDescriptors);
+            return new faceapi.LabeledFaceDescriptors(label, faceDescriptors);
         }
 
         async function loadlabel(video, displaySize, canvas){
