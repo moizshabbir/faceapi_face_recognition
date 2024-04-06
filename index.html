@@ -4,21 +4,35 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Q-calendar Face detector</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
 </head>
 <body>
-    <video autoplay="true" id="videoElement">
-	
-	</video>
-    <!-- <img src="images/us.jpg" id="originalImg" /> -->
-        <canvas id="reflay" class="overlay" width="100" height="100"></canvas>
-    <button id="stop">Stop</button>
-    <button id="start">Detect again</button>
+    <div class="content">
+        <div class="card">
+            <div class="card-body">
+                <video autoplay="true" id="videoElement">
+                
+                </video>
+                <!-- <img src="images/us.jpg" id="originalImg" /> -->
+                <canvas id="reflay" class="overlay" width="100" height="100"></canvas>
+            </div>
+        </div>
+        <div class="d-flex gap-2 justify-content-center m-2">
+            <button class="btn btn-lg btn-dark" id="stop">Stop</button>
+            <button class="btn btn-lg btn-primary" id="start">Detect again</button>
+        </div>
+        <div class="alert message position-fixed text-center top-0 w-100">
+            <div class="alet-message">
+            </div>
+        </div>
+    </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://unpkg.dev/@vladmandic/face-api/dist/face-api.js"></script>
     <script>
         $(document).ready(async function(){
             var video = document.querySelector("#videoElement");
+            var filteredData;
             const canvas = $('#reflay').get(0);
             video.srcObject = await navigator.mediaDevices.getUserMedia({ video: true });//document.getElementById('originalImg')
             const displaySize = { width: $(video).width(), height: $(video).height() }
@@ -26,32 +40,35 @@
             async function face(){
                 
                 const MODEL_URL = 'models'
-        
-                await faceapi.loadSsdMobilenetv1Model(MODEL_URL)
-                await faceapi.loadFaceLandmarkModel(MODEL_URL)
-                await faceapi.loadFaceRecognitionModel(MODEL_URL)
-                await faceapi.loadFaceExpressionModel(MODEL_URL)
+                console.log('Model load start');
+                alertMessage('info', 'Loading Modal...');
+                Promise.all([
+                 faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+               // faceapi.loadFaceExpressionModel(MODEL_URL)
+                ]).then((val) => {
+                    console.log('Model load done');
+                    alertMessage('success', 'Model Loaded...');
+
                 if (!navigator.mediaDevices.getUserMedia) {
                     console.log(navigator.mediaDevices.getUserMedia);
-                   return;
-                    
-                //     .then(function (stream) {
-                //     video.srcObject = stream;
-                //     })
-                //     .catch(function (err0r) {
-                //     console.log("Something went wrong!");
-                //     });
+                   return;                
                 }
-                
+                console.log(canvas, displaySize);
                 faceapi.matchDimensions(canvas, displaySize)
 
                 console.log(video, displaySize);
                 var inter = setTimeout(async ()=> {
+                    await loadlabel(video, displaySize, canvas);
                     await detectFace(video,displaySize, canvas);
                 },200);
                 $('#stop').on('click',function(){
                     clearInterval(inter);
                 })
+            }).catch((err, eee) => {
+                alertMessage('danger', err.toString());
+                console.log(err,eee)})
             }
             
             face()
@@ -59,50 +76,77 @@
                 await detectFace(video, displaySize, canvas);
             })
         });
+
+        function alertMessage(type, message){
+            $('.message').removeClass('alert-success').removeClass('alert-info').removeClass('alert-danger').addClass(`alert-${type}`);
+            $('.message > div').text(message);  
+        }
+
+        async function addImageToModal(label, image, i, listCount){
+            console.log(label)
+            const imgUrl = await fetch(`images/${label}.jpg`);
+            const blob = await imgUrl.blob();
+            if (blob?.type === 'text/html') {
+                return null;
+            }
+            if (!blob) {
+                return null;
+            }
+            const img = await faceapi.bufferToImage(blob)
+            if (!img) {
+                return null;
+            }
+            console.log(img);
+            const faceDescription = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor()
+            
+            if (!faceDescription) {
+                return null;//throw new Error(`no faces detected for ${label}`)
+            }
+            
+            const faceDescriptors = [faceDescription.descriptor]
+            let per = Math.round((i / listCount) * 100).toFixed(0);
+            alertMessage('info', `Loading images to Modal ${per}%...`);
+            return new faceapi.LabeledFaceDescriptors(label.name, faceDescriptors);
+        }
+
+        async function loadlabel(video, displaySize, canvas){
+            alertMessage('info', `Loading images to Modal 0%...`);
+            const list = ['moiz'];
+            var i = 0;
+            var listCount = list.length;
+            const labeledFaceDescriptors = await Promise.all(
+                list.map(async label => {
+                    i++;
+                    return await addImageToModal(label, 1, i, listCount);
+                })
+            );
+            return filteredData = labeledFaceDescriptors?.filter(item => item !== null)
+        }
         async function detectFace(video, displaySize, canvas){
+            alertMessage('info', `Detecting Face...`);
             const context = canvas.getContext('2d');
 
             context.clearRect(0, 0, displaySize.width, displaySize.height);
-            let faceDescriptions = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors().withFaceExpressions()
-                console.log(faceDescriptions);
-                console.log(canvas);
-                context.drawImage(video, 0, 0, displaySize.width, displaySize.height);
-                faceDescriptions = faceapi.resizeResults(faceDescriptions, displaySize)
-                faceapi.draw.drawDetections(canvas, faceDescriptions)
-                //faceapi.draw.drawFaceLandmarks(canvas, faceDescriptions)
-               // faceapi.draw.drawFaceExpressions(canvas, faceDescriptions)
-                
-                const labels = ['moiz']
+            let faceDescriptions = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors()
+            console.log(faceDescriptions);
+            console.log(canvas);
+            context.drawImage(video, 0, 0, displaySize.width, displaySize.height);
+            faceDescriptions = faceapi.resizeResults(faceDescriptions, displaySize)
+            faceapi.draw.drawDetections(canvas, faceDescriptions)
+            
+            const threshold = 0.5
+            const faceMatcher = new faceapi.FaceMatcher(filteredData, threshold)
 
-                const labeledFaceDescriptors = await Promise.all(
-                    labels.map(async label => {
-                        console.log(label)
-                        const imgUrl = `images/${label}.jpg`
-                        const img = await faceapi.fetchImage(imgUrl)
-                        //console.log(img);
-                        const faceDescription = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor()
-                        
-                        if (!faceDescription) {
-                        throw new Error(`no faces detected for ${label}`)
-                        }
-                        
-                        const faceDescriptors = [faceDescription.descriptor]
-                        return new faceapi.LabeledFaceDescriptors(label, faceDescriptors)
-                    })
-                );
+            const results = faceDescriptions.map(fd => faceMatcher.findBestMatch(fd.descriptor))
 
-                const threshold = 0.6
-                const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, threshold)
-
-                const results = faceDescriptions.map(fd => faceMatcher.findBestMatch(fd.descriptor))
-
-                results.forEach((bestMatch, i) => {
-                    const box = faceDescriptions[i].detection.box
-                    const text = bestMatch.toString()
-
-                    const drawBox = new faceapi.draw.DrawBox(box, { label: text })
-                    drawBox.draw(canvas)
-                })
+            results.forEach((bestMatch, i) => {
+                const box = faceDescriptions[i].detection.box
+                const text = bestMatch.toString()
+                console.log(text, bestMatch);
+                const drawBox = new faceapi.draw.DrawBox(box, { label: text })
+                drawBox.draw(canvas)
+            })
+            alertMessage('success', `Face detected`);
         }
     </script>
 </body>
